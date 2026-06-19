@@ -1,6 +1,5 @@
 import 'package:get/get.dart';
-import '../modules/login/views/login_view.dart';
-import '../modules/register/views/register_view.dart';
+import '../modules/splash/views/splash_view.dart';
 import '../modules/home/views/home_view.dart';
 
 part 'app_routes.dart';
@@ -8,19 +7,15 @@ part 'app_routes.dart';
 class AppPages {
   AppPages._();
 
-  static const INITIAL = Routes.LOGIN;
+  static const initial = Routes.splash;
 
   static final routes = [
     GetPage(
-      name: _Paths.LOGIN,
-      page: () => const LoginView(),
+      name: _Paths.splash,
+      page: () => const SplashView(),
     ),
     GetPage(
-      name: _Paths.REGISTER,
-      page: () => const RegisterView(),
-    ),
-    GetPage(
-      name: _Paths.HOME,
+      name: _Paths.home,
       page: () => const HomeView(),
     ),
   ];

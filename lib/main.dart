@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'src/routes/app_pages.dart';
+import 'src/core/theme/app_theme.dart';
+import 'src/core/theme/theme_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await GetStorage.init();
   runApp(const MyApp());
 }
 
@@ -14,11 +19,10 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       title: 'NewsFlow',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      initialRoute: AppPages.INITIAL,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeService().theme,
+      initialRoute: AppPages.initial,
       getPages: AppPages.routes,
     );
   }
