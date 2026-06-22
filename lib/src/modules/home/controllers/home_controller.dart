@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/network/rss_service.dart';
+import '../../../core/network/api_service.dart';
 import '../../../models/news_model.dart';
 import '../../../core/base/base_controller.dart';
 
 class HomeController extends BaseController {
-  final RssService _newsService = RssService();
+  final ApiService _newsService = ApiService();
   
   final newsList = <NewsModel>[].obs;
   final selectedCategory = 'Top News'.obs;
@@ -64,13 +64,16 @@ class HomeController extends BaseController {
         state = ViewState.success;
       }
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = e.toString().contains("SocketException") 
+          ? "Cannot connect to backend server. Is ngrok running?" 
+          : "Server error or parsing failure: $e";
+          
       // Detect connection errors manually if connectivity check missed it
       if (e.toString().contains("SocketException") || e.toString().contains("Connection failed")) {
         state = ViewState.noInternet;
       } else {
         state = ViewState.error;
-        Get.snackbar('Error', 'Failed to fetch news', snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar('Build Error', errorMessage, snackPosition: SnackPosition.BOTTOM, duration: const Duration(seconds: 5));
       }
     }
   }

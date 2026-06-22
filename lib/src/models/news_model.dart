@@ -17,12 +17,22 @@ class NewsModel {
   });
 
   factory NewsModel.fromJson(Map<String, dynamic> json) {
+    // Robust source parsing
+    String sourceName = '';
+    if (json['source'] != null) {
+      if (json['source'] is Map) {
+        sourceName = json['source']['name'] ?? '';
+      } else {
+        sourceName = json['source'].toString();
+      }
+    }
+
     return NewsModel(
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      urlToImage: json['urlToImage'] ?? '',
-      publishedAt: json['publishedAt'] ?? '',
-      source: json['source'] != null ? json['source']['name'] ?? '' : '',
+      title: json['title'] ?? json['headline'] ?? '',
+      description: json['description'] ?? json['content'] ?? '',
+      urlToImage: json['urlToImage'] ?? json['image_url'] ?? '',
+      publishedAt: json['publishedAt'] ?? json['date'] ?? '',
+      source: sourceName,
     );
   }
 }
