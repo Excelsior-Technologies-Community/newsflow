@@ -1,14 +1,20 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/network/api_service.dart';
+import '../../../core/network/rss_service.dart';
 import '../../../models/news_model.dart';
+import '../../../core/base/base_controller.dart';
 
-class HomeController extends GetxController {
-  final ApiService _apiService = ApiService();
+class HomeController extends BaseController {
+  final RssService _newsService = RssService();
   
-  var isLoading = true.obs;
-  var newsList = <NewsModel>[].obs;
-  var topNews = <NewsModel>[].obs;
-  var selectedCategory = 'General'.obs;
+  final newsList = <NewsModel>[].obs;
+  final selectedCategory = 'Top News'.obs;
+  final currentPage = 1.obs;
+  final isFetchingMore = false.obs;
+  final hasMore = true.obs;
+
+  final ScrollController scrollController = ScrollController();
+  final appBarElevation = 0.0.obs;
 
   final List<String> categories = [
     'Top News',
@@ -16,45 +22,84 @@ class HomeController extends GetxController {
     'National',
     'International',
     'Business',
-    'Cricket',
-    'Football',
     'Tech News',
     'Health News',
-    'New Invention'
+    'New Invention',
+    'Cricket',
+    'Football'
   ];
 
   @override
   void onInit() {
     super.onInit();
-    fetchNews('Top News');
+    fetchNews(selectedCategory.value);
+    
+    scrollController.addListener(() {
+      // Handle App Bar Elevation
+      appBarElevation.value = scrollController.offset > 10 ? 2.0 : 0.0;
+
+      // Handle Pagination: Trigger earlier (300px from bottom)
+      if (scrollController.position.pixels >= scrollController.position.maxScrollExtent - 300) {
+        if (!isFetchingMore.value && hasMore.value && state == ViewState.success) {
+          fetchMoreNews();
+        }
+      }
+    });
   }
 
-  void fetchNews(String category) async {
-    isLoading.value = true;
+  Future<void> fetchNews(String category, {bool showLoading = true}) async {
+    if (showLoading) state = ViewState.loading;
     selectedCategory.value = category;
-    
-    // Using dummy data for testing the new UI structure
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    final dummyData = [
-      NewsModel(
-        title: "India's Nuclear Arsenal Swells To 190: Which Country Has Most Nuke Warheads",
-        description: "For the first time, India has kept 12 nuclear warheads deployed during peacetime, breaking with its longstanding practice of storing warheads separately from delivery systems such as ballistic missiles, according to SIPRI.",
-        urlToImage: "https://images.unsplash.com/photo-1569003339405-ea396a5a8a90?q=80&w=1000&auto=format&fit=crop", // More reliable Unsplash URL
-        publishedAt: "09 June 2026 • 7.49 PM IST",
-        source: "INDIA'S NUCLEAR",
-      ),
-      NewsModel(
-        title: "Stock Market Reaches New All-Time High Amid Positive Global Cues",
-        description: "Investors are optimistic as the main indices surged to record levels today. Analysts suggest that the trend might continue given the current economic climate and strong corporate earnings reported this quarter.",
-        urlToImage: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?q=80&w=1000&auto=format&fit=crop", // New reliable Stock Market image
-        publishedAt: "10 June 2026 • 10:15 AM IST",
-        source: "MARKET UPDATE",
-      ),
-    ];
+    currentPage.value = 1;
+    hasMore.value = true;
 
-    newsList.assignAll(dummyData);
-    topNews.assignAll(dummyData);
-    isLoading.value = false;
+    if (!await checkConnectivity()) return;
+
+    try {
+      final results = await _newsService.fetchNews(category: category, page: 1);
+      if (results.isEmpty) {
+        state = ViewState.empty;
+      } else {
+        newsList.assignAll(results);
+        state = ViewState.success;
+      }
+    } catch (e) {
+      errorMessage = e.toString();
+      // Detect connection errors manually if connectivity check missed it
+      if (e.toString().contains("SocketException") || e.toString().contains("Connection failed")) {
+        state = ViewState.noInternet;
+      } else {
+        state = ViewState.error;
+        Get.snackbar('Error', 'Failed to fetch news', snackPosition: SnackPosition.BOTTOM);
+      }
+    }
+  }
+
+  Future<void> fetchMoreNews() async {
+    isFetchingMore.value = true;
+    currentPage.value++;
+
+    try {
+      final results = await _newsService.fetchNews(
+        category: selectedCategory.value, 
+        page: currentPage.value
+      );
+      
+      if (results.isEmpty) {
+        hasMore.value = false;
+      } else {
+        newsList.addAll(results);
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load more news', snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      isFetchingMore.value = false;
+    }
+  }
+
+  @override
+  void onClose() {
+    scrollController.dispose();
+    super.onClose();
   }
 }

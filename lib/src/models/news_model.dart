@@ -1,9 +1,12 @@
+import 'package:get/get.dart';
+
 class NewsModel {
   final String title;
   final String description;
   final String urlToImage;
   final String publishedAt;
   final String source;
+  final RxBool isExpanded = false.obs; // Add reactive expanded state
 
   NewsModel({
     required this.title,
