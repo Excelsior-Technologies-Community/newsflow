@@ -18,9 +18,9 @@ class HomeController extends BaseController {
 
   final List<String> categories = [
     'Top News',
+    'India',
+    'World',
     'Stock Market',
-    'National',
-    'International',
     'Business',
     'Tech News',
     'Health News',

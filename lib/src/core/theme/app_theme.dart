@@ -3,9 +3,16 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   static final light = ThemeData(
+    scaffoldBackgroundColor: Colors.white,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+    ),
     colorScheme: ColorScheme.fromSeed(
       seedColor: Colors.deepPurple,
       brightness: Brightness.light,
+      surface: Colors.white,
     ),
     textTheme: GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme),
   );

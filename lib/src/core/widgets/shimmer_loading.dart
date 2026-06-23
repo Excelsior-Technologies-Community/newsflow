@@ -7,9 +7,9 @@ class ShimmerLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isDark = Get.isDarkMode;
-    Color baseColor = isDark ? Colors.grey[800]! : Colors.grey[300]!;
-    Color highlightColor = isDark ? Colors.grey[700]! : Colors.grey[100]!;
+    // Fixed colors: use light mode grey variants for both themes
+    const Color baseColor = Color(0xFFE0E0E0); // Equivalent to Colors.grey[300]
+    const Color highlightColor = Color(0xFFF5F5F5); // Equivalent to Colors.grey[100]
 
     return ListView.builder(
       itemCount: 5,

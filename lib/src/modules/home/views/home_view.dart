@@ -15,6 +15,7 @@ class HomeView extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = context.isDarkMode;
     // Controller is already put in GetMaterialApp or initialized elsewhere, 
     // but ensuring it's available here.
     if (!Get.isRegistered<HomeController>()) Get.put(HomeController());
@@ -24,7 +25,9 @@ class HomeView extends GetView<HomeController> {
         preferredSize: const Size.fromHeight(kToolbarHeight),
         child: Obx(() => AppBar(
           elevation: controller.appBarElevation.value,
-          shadowColor: Colors.black26,
+          shadowColor: isDark ? Colors.black45 : Colors.black12,
+          surfaceTintColor: Colors.transparent, // Prevents color shifting on scroll
+          backgroundColor: isDark ? const Color(0xFF0D1117) : Colors.white,
           title: const Row(
             children: [
               AppLogo(size: 30, showText: false),
@@ -76,7 +79,10 @@ class HomeView extends GetView<HomeController> {
                       onRetry: () => controller.fetchNews(controller.selectedCategory.value),
                     );
                   case ViewState.success:
-                    return _buildNewsList();
+                    return RefreshIndicator(
+                      onRefresh: () => controller.fetchNews(controller.selectedCategory.value, showLoading: false),
+                      child: _buildNewsList(),
+                    );
                   default:
                     return const SizedBox.shrink();
                 }
@@ -116,23 +122,24 @@ class HomeView extends GetView<HomeController> {
                     onSelected: (selected) {
                       if (selected) controller.fetchNews(category);
                     },
-                    selectedColor: isDark ? Colors.teal.withAlpha((0.2 * 255).toInt()) : Colors.deepPurple,
-                    backgroundColor: isDark ? const Color(0xFF161B22) : Colors.grey[200],
+                    selectedColor: Colors.transparent, // Transparent like in the photo
+                    backgroundColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
-                        color: isSelected
-                            ? (isDark ? Colors.tealAccent : Colors.deepPurple)
-                            : (isDark ? Colors.grey[700]! : Colors.transparent),
-                        width: 1.5,
+                        color: isSelected 
+                            ? const Color(0xFF244D40) // Specific dark green from image
+                            : Colors.grey[400]!,      // Light grey border for unselected
+                        width: 1,
                       ),
                     ),
                     labelStyle: TextStyle(
-                      color: isSelected
-                          ? (isDark ? Colors.tealAccent : Colors.white)
-                          : (isDark ? Colors.grey[400] : Colors.black87),
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected 
+                          ? const Color(0xFF244D40) // Match border color
+                          : Colors.grey[500]!,      // Match unselected border color
+                      fontWeight: FontWeight.bold,  // All text is now bold
                     ),
+                    showCheckmark: false, // Cleaner look like the photo
                   ),
                 );
               });
@@ -177,30 +184,21 @@ class HomeView extends GetView<HomeController> {
 
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161B22) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              if (!isDark)
-                BoxShadow(
-                  color: Colors.black.withAlpha(13),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-            ],
+            color: isDark ? const Color(0xFF0D1117) : Colors.white,
           ),
-          clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 1. Large Image
               if (news.urlToImage.isNotEmpty)
                 CachedNetworkImage(
                   imageUrl: news.urlToImage,
                   width: double.infinity,
-                  height: isTablet ? 350 : 220,
+                  height: isTablet ? 350 : 250,
                   fit: BoxFit.cover,
                   memCacheWidth: 1000,
                   placeholder: (context, url) => Container(
-                    height: isTablet ? 350 : 220,
+                    height: isTablet ? 350 : 250,
                     color: isDark ? Colors.grey[900] : Colors.grey[200],
                     child: const Center(
                       child: SizedBox(
@@ -211,7 +209,7 @@ class HomeView extends GetView<HomeController> {
                     ),
                   ),
                   errorWidget: (context, url, error) => Container(
-                    height: isTablet ? 350 : 220,
+                    height: isTablet ? 350 : 250,
                     width: double.infinity,
                     color: isDark ? Colors.grey[900] : Colors.grey[200],
                     child: Column(
@@ -234,54 +232,74 @@ class HomeView extends GetView<HomeController> {
                     ),
                   ),
                 ),
+              
+              // 2. Source Name (Italic, Light Grey) - Matches "India's Nuclear" in demo
+              Padding(
+                padding: const EdgeInsets.only(left: 15, top: 12, bottom: 8),
+                child: Text(
+                  news.source,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    color: isDark ? Colors.grey[500] : Colors.grey[500],
+                  ),
+                ),
+              ),
+              
+              const Divider(height: 1, thickness: 0.5),
 
               Padding(
                 padding: EdgeInsets.all(isTablet ? 25 : 15),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 3. Category Badge (Red Dot + Black/White Badge)
                     Row(
                       children: [
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.white : Colors.black,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              news.source.toUpperCase(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: isDark ? Colors.black : Colors.white,
-                                fontSize: isTablet ? 12 : 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFD32F2F), // Muted professional red
+                            shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          news.publishedAt.split(' ').take(4).join(' '),
-                          style: TextStyle(
-                            fontSize: isTablet ? 13 : 11,
-                            color: isDark ? Colors.grey[500] : Colors.grey[600],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white : Colors.black,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            news.source.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isDark ? Colors.black : Colors.white,
+                              fontSize: isTablet ? 12 : 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+                    
+                    // 4. Headline - Large, Ultra Bold
                     Text(
                       news.title,
                       style: GoogleFonts.poppins(
-                        fontSize: isTablet ? 24 : 18,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                        color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                        fontSize: isTablet ? 26 : 22,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                        color: isDark ? Colors.white : const Color(0xFF000000),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
+
+                    // 5. Description - Clean, Spaced
                     Obx(() => AnimatedSize(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
@@ -290,45 +308,80 @@ class HomeView extends GetView<HomeController> {
                         maxLines: news.isExpanded.value ? null : 3,
                         overflow: news.isExpanded.value ? TextOverflow.visible : TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: isTablet ? 16 : 14,
-                          height: 1.5,
-                          color: isDark ? Colors.grey[400] : const Color(0xFF4A4A4A),
+                          fontSize: isTablet ? 17 : 15,
+                          height: 1.6,
+                          color: isDark ? Colors.grey[300] : const Color(0xFF444444),
                         ),
                       ),
                     )),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 20),
+
+                    // 6. Read More Toggle (Only shown when text is actually truncated)
+                    LayoutBuilder(
+                      builder: (context, lConstraints) {
+                        // Create a TextPainter to check if the text will actually overflow 3 lines
+                        final textSpan = TextSpan(
+                          text: news.description,
+                          style: GoogleFonts.poppins(
+                            fontSize: isTablet ? 17 : 15,
+                            height: 1.6,
+                          ),
+                        );
+                        
+                        final tp = TextPainter(
+                          text: textSpan,
+                          maxLines: 3,
+                          textDirection: TextDirection.ltr,
+                        );
+                        
+                        tp.layout(maxWidth: lConstraints.maxWidth);
+                        
+                        // didExceedMaxLines is true only if text is physically cut off
+                        bool isTruncated = tp.didExceedMaxLines;
+                        
+                        if (!isTruncated) return const SizedBox(height: 20);
+
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => news.isExpanded.toggle(),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Obx(() => Text(
+                              news.isExpanded.value ? "Read Less" : "Read More",
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w700,
+                                fontSize: isTablet ? 15 : 14,
+                                color: Colors.blueAccent,
+                              ),
+                            )),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // 7. Footer (Date + Options)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Builder(
-                          builder: (context) {
-                            // Only allow expansion if description is long enough (approx > 3 lines)
-                            bool canExpand = news.description.length > 130;
-                            
-                            return GestureDetector(
-                              onTap: canExpand ? () => news.isExpanded.toggle() : null,
-                              child: Obx(() => Text(
-                                news.isExpanded.value ? "Read Less" : "Read Full Story",
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: isTablet ? 15 : 13,
-                                  color: canExpand 
-                                      ? Colors.blueAccent 
-                                      : (isDark ? Colors.grey[700] : Colors.grey[400]),
-                                ),
-                              )),
-                            );
-                          },
+                        Text(
+                          news.publishedAt,
+                          style: GoogleFonts.poppins(
+                            fontSize: isTablet ? 14 : 13,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.grey[500] : const Color(0xFF777777),
+                          ),
                         ),
                         Icon(
                           Icons.more_horiz,
-                          color: isDark ? Colors.grey[600] : Colors.grey[400],
+                          color: isDark ? Colors.grey[500] : const Color(0xFF777777),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
+              const Divider(height: 40, thickness: 8, color: Color(0x08000000)), // Subtle section break
             ],
           ),
         );

@@ -17,22 +17,12 @@ class NewsModel {
   });
 
   factory NewsModel.fromJson(Map<String, dynamic> json) {
-    // Robust source parsing
-    String sourceName = '';
-    if (json['source'] != null) {
-      if (json['source'] is Map) {
-        sourceName = json['source']['name'] ?? '';
-      } else {
-        sourceName = json['source'].toString();
-      }
-    }
-
     return NewsModel(
-      title: json['title'] ?? json['headline'] ?? '',
-      description: json['description'] ?? json['content'] ?? '',
-      urlToImage: json['urlToImage'] ?? json['image_url'] ?? '',
-      publishedAt: json['publishedAt'] ?? json['date'] ?? '',
-      source: sourceName,
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      urlToImage: json['image_url'] ?? '', // Match backend 'image_url'
+      publishedAt: json['published_at'] ?? '', // Match backend 'published_at'
+      source: json['source']?.toString() ?? 'NewsFlow', // Match backend 'source'
     );
   }
 }
