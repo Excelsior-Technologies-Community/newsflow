@@ -16,22 +16,12 @@ class HomeController extends BaseController {
   final ScrollController scrollController = ScrollController();
   final appBarElevation = 0.0.obs;
 
-  final List<String> categories = [
-    'Top News',
-    'India',
-    'World',
-    'Stock Market',
-    'Business',
-    'Tech News',
-    'Health News',
-    'New Invention',
-    'Cricket',
-    'Football'
-  ];
+  final categories = <String>['Top News', 'India', 'World', 'Business', 'Sports', 'AI'].obs;
 
   @override
   void onInit() {
     super.onInit();
+    discoverCategories();
     fetchNews(selectedCategory.value);
     
     scrollController.addListener(() {
@@ -97,6 +87,18 @@ class HomeController extends BaseController {
       Get.snackbar('Error', 'Failed to load more news', snackPosition: SnackPosition.BOTTOM);
     } finally {
       isFetchingMore.value = false;
+    }
+  }
+
+  Future<void> discoverCategories() async {
+    try {
+      final discovered = await _newsService.fetchAllCategories();
+      if (discovered.isNotEmpty) {
+        // Keep 'Top News' as the first item, then add discovered categories
+        categories.assignAll(['Top News', ...discovered]);
+      }
+    } catch (e) {
+      print("Failed to discover categories: $e");
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../controllers/home_controller.dart';
+import '../../auth/controllers/auth_controller.dart';
 import '../../../core/theme/theme_service.dart';
 import '../../../models/news_model.dart';
 import '../../../core/widgets/app_logo.dart';
@@ -16,9 +17,6 @@ class HomeView extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     bool isDark = context.isDarkMode;
-    // Controller is already put in GetMaterialApp or initialized elsewhere, 
-    // but ensuring it's available here.
-    if (!Get.isRegistered<HomeController>()) Get.put(HomeController());
 
     return Scaffold(
       appBar: PreferredSize(
@@ -39,6 +37,17 @@ class HomeView extends GetView<HomeController> {
             ],
           ),
           actions: [
+            IconButton(
+              tooltip: 'Logout',
+              icon: const Icon(Icons.logout_rounded),
+              onPressed: () {
+                if (Get.isRegistered<AuthController>()) {
+                  Get.find<AuthController>().logout();
+                } else {
+                  Get.put(AuthController()).logout();
+                }
+              },
+            ),
             IconButton(
               tooltip: 'Refresh News',
               icon: const Icon(Icons.refresh_rounded),
@@ -101,7 +110,7 @@ class HomeView extends GetView<HomeController> {
         return Container(
           height: 60,
           padding: const EdgeInsets.symmetric(vertical: 10),
-          child: ListView.builder(
+          child: Obx(() => ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: controller.categories.length,
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -116,6 +125,10 @@ class HomeView extends GetView<HomeController> {
                       category,
                       style: TextStyle(
                         fontSize: constraints.maxWidth > 600 ? 16 : 13,
+                        color: isSelected 
+                            ? const Color(0xFF244D44) // Match border color
+                            : Colors.grey[500]!,      // Match unselected border color
+                        fontWeight: FontWeight.bold,  // All text is now bold
                       ),
                     ),
                     selected: isSelected,
@@ -128,23 +141,17 @@ class HomeView extends GetView<HomeController> {
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
                         color: isSelected 
-                            ? const Color(0xFF244D40) // Specific dark green from image
+                            ? const Color(0xFF244D44) // Updated green color
                             : Colors.grey[400]!,      // Light grey border for unselected
                         width: 1,
                       ),
-                    ),
-                    labelStyle: TextStyle(
-                      color: isSelected 
-                          ? const Color(0xFF244D40) // Match border color
-                          : Colors.grey[500]!,      // Match unselected border color
-                      fontWeight: FontWeight.bold,  // All text is now bold
                     ),
                     showCheckmark: false, // Cleaner look like the photo
                   ),
                 );
               });
             },
-          ),
+          )),
         );
       },
     );

@@ -40,4 +40,40 @@ class ApiService implements BaseNewsService {
       rethrow;
     }
   }
+
+  @override
+  Future<List<String>> fetchAllCategories() async {
+    try {
+      // Fetch a larger sample (500 items) to discover all possible categories
+      final response = await http.get(
+        Uri.parse("$baseUrl/api/news?limit=500"),
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List results = data['data'] ?? [];
+        
+        // Extract unique categories, trim them, and filter out empty strings
+        final Set<String> categorySet = results
+            .map((item) => item['category']?.toString().trim() ?? '')
+            .where((cat) => cat.isNotEmpty)
+            .toSet();
+            
+        final categories = categorySet.toList();
+        // Case-insensitive sorting
+        categories.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+        
+        print("Discovered Categories from API: $categories");
+        return categories;
+      }
+      return [];
+    } catch (e) {
+      print("Category Discovery Error: $e");
+      return [];
+    }
+  }
 }
