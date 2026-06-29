@@ -9,54 +9,57 @@ class LoginView extends GetView<AuthController> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.isDarkMode;
-    final primaryColor = const Color(0xFF244D44);
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0D1117) : Colors.white,
-      body: Center(
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(30.0),
+          padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 20),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AppLogo(size: 80, showText: true),
+              const SizedBox(height: 40),
+              const Center(child: AppLogo(size: 70, showText: true)),
               const SizedBox(height: 50),
               
               Text(
                 'Welcome Back',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : primaryColor,
-                ),
+                style: theme.textTheme.headlineLarge,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(
-                'Login to stay updated with NewsFlow',
-                style: TextStyle(color: Colors.grey[500]),
+                'I am happy to see you again. You can continue where you left off by logging in.',
+                style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 40),
-
+  
               // Email Field
+              Text(
+                'Email Address',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
               TextField(
                 controller: controller.loginEmailController,
-                decoration: InputDecoration(
-                  hintText: 'Email Address',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: isDark ? Colors.grey[900] : Colors.grey[100],
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  hintText: 'Enter your email',
+                  prefixIcon: Icon(Icons.email_outlined),
                 ),
               ),
               const SizedBox(height: 20),
-
+  
               // Password Field
+              Text(
+                'Password',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
               Obx(() => TextField(
                 controller: controller.loginPasswordController,
                 obscureText: !controller.isPasswordVisible.value,
                 decoration: InputDecoration(
-                  hintText: 'Password',
+                  hintText: 'Enter your password',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(controller.isPasswordVisible.value 
@@ -64,51 +67,59 @@ class LoginView extends GetView<AuthController> {
                       : Icons.visibility_off),
                     onPressed: controller.togglePasswordVisibility,
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: isDark ? Colors.grey[900] : Colors.grey[100],
                 ),
               )),
-
+  
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () => Get.toNamed(Routes.forgotPassword),
-                  child: Text('Forgot Password?', style: TextStyle(color: primaryColor)),
+                  child: Text(
+                    'Forgot Password?', 
+                    style: TextStyle(
+                      color: theme.primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-
+              const SizedBox(height: 10),
+  
               // Login Button
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: Obx(() => ElevatedButton(
-                  onPressed: controller.isLoading.value ? null : () => controller.login(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                  child: controller.isLoading.value 
-                    ? const SizedBox(width: 25, height: 25, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Login', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                )),
-              ),
-              const SizedBox(height: 30),
+              Obx(() => ElevatedButton(
+                onPressed: controller.isLoading.value ? null : () => controller.login(),
+                child: controller.isLoading.value 
+                  ? const SizedBox(
+                      width: 25, 
+                      height: 25, 
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text('Login'),
+              )),
+              
+              const SizedBox(height: 40),
 
               // Register Link
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text("Don't have an account? ", style: TextStyle(color: Colors.grey[600])),
+                  Text(
+                    "Don't have an account? ", 
+                    style: theme.textTheme.bodyMedium,
+                  ),
                   GestureDetector(
                     onTap: () => Get.toNamed(Routes.register),
-                    child: Text('Register', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'Register', 
+                      style: TextStyle(
+                        color: theme.primaryColor, 
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

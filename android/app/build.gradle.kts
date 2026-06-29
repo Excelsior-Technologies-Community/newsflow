@@ -19,7 +19,7 @@ android {
         applicationId = "com.ext.newsflow"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion // Increased to 21 for better WebView support
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName

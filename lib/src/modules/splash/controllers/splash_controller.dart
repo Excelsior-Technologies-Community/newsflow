@@ -17,7 +17,7 @@ class SplashController extends GetxController {
     bool isLoggedIn = storage.read('isLoggedIn') ?? false;
     
     if (isLoggedIn) {
-      Get.offAllNamed(Routes.home);
+      Get.offAllNamed(Routes.dashboard);
     } else {
       Get.offAllNamed(Routes.login);
     }

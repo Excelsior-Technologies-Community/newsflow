@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/network/base_news_service.dart';
 import '../../../core/network/api_service.dart';
 import '../../../models/news_model.dart';
 import '../../../core/base/base_controller.dart';
+import '../../bookmarks/controllers/bookmarks_controller.dart';
 
 class HomeController extends BaseController {
-  final ApiService _newsService = ApiService();
+  final _newsService = ApiService();
   
   final newsList = <NewsModel>[].obs;
   final selectedCategory = 'Top News'.obs;
@@ -18,11 +21,14 @@ class HomeController extends BaseController {
 
   final categories = <String>['Top News', 'India', 'World', 'Business', 'Sports', 'AI'].obs;
 
+  Timer? _syncTimer;
+
   @override
   void onInit() {
     super.onInit();
     discoverCategories();
     fetchNews(selectedCategory.value);
+    _startSyncTimer();
     
     scrollController.addListener(() {
       // Handle App Bar Elevation
@@ -50,6 +56,15 @@ class HomeController extends BaseController {
       if (results.isEmpty) {
         state = ViewState.empty;
       } else {
+        // Sync bookmark state for newly fetched news
+        if (Get.isRegistered<BookmarksController>()) {
+          final bookmarksController = Get.find<BookmarksController>();
+          for (var item in results) {
+            if (item.id != null) {
+              item.isBookmarked.value = bookmarksController.isBookmarked(item.id!);
+            }
+          }
+        }
         newsList.assignAll(results);
         state = ViewState.success;
       }
@@ -81,6 +96,15 @@ class HomeController extends BaseController {
       if (results.isEmpty) {
         hasMore.value = false;
       } else {
+        // Sync bookmark state for newly fetched news
+        if (Get.isRegistered<BookmarksController>()) {
+          final bookmarksController = Get.find<BookmarksController>();
+          for (var item in results) {
+            if (item.id != null) {
+              item.isBookmarked.value = bookmarksController.isBookmarked(item.id!);
+            }
+          }
+        }
         newsList.addAll(results);
       }
     } catch (e) {
@@ -102,8 +126,54 @@ class HomeController extends BaseController {
     }
   }
 
+  void _startSyncTimer() {
+    // Sync every 30 minutes
+    _syncTimer = Timer.periodic(const Duration(minutes: 30), (timer) {
+      if (selectedCategory.value == 'Top News') {
+        performBackgroundSync();
+      }
+    });
+  }
+
+  Future<void> performBackgroundSync() async {
+    try {
+      print("HomeController: Starting background sync for category: ${selectedCategory.value}");
+      final List<NewsModel> results = await _newsService.performNewsSync();
+      
+      if (results.isNotEmpty) {
+        // Sync bookmark state for new items
+        if (Get.isRegistered<BookmarksController>()) {
+          final bookmarksController = Get.find<BookmarksController>();
+          for (var item in results) {
+            if (item.id != null) {
+              item.isBookmarked.value = bookmarksController.isBookmarked(item.id!);
+            }
+          }
+        }
+
+        // Add only new unique items to the top
+        final currentIds = newsList.map((e) => e.id).toSet();
+        final newItems = results.where((item) => !currentIds.contains(item.id)).toList();
+
+        if (newItems.isNotEmpty) {
+          newsList.insertAll(0, newItems);
+          Get.snackbar(
+            'New Updates', 
+            'Added ${newItems.length} new news items',
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.blueAccent.withAlpha(204), // Approx 0.8 opacity
+            colorText: Colors.white,
+          );
+        }
+      }
+    } catch (e) {
+      print("Background sync failed: $e");
+    }
+  }
+
   @override
   void onClose() {
+    _syncTimer?.cancel();
     scrollController.dispose();
     super.onClose();
   }

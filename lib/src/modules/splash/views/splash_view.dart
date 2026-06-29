@@ -14,17 +14,28 @@ class SplashView extends GetView<SplashController> {
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-          ),
+          color: Color(0xFF475AD7),
         ),
-        child: const Center(
-          child: AppLogo(
-            size: 120,
-            color: Colors.white,
-          ),
+        child: const Stack(
+          children: [
+            Center(
+              child: AppLogo(
+                size: 100,
+                color: Colors.white,
+              ),
+            ),
+            Positioned(
+              bottom: 50,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

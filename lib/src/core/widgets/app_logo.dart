@@ -29,7 +29,7 @@ class AppLogo extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Colors.deepPurple, Colors.blueAccent],
+                  colors: [Color(0xFF475AD7), Color(0xFF6E7EF2)],
                 ),
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(size * 0.4),
@@ -39,7 +39,7 @@ class AppLogo extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blueAccent.withAlpha((0.3 * 255).toInt()),
+                    color: const Color(0xFF475AD7).withOpacity(0.3),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
