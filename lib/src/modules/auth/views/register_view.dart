@@ -142,14 +142,20 @@ class RegisterView extends GetView<AuthController> {
             // Confirm Password Field
             _buildFieldLabel(theme, 'Confirm Password'),
             const SizedBox(height: 8),
-            TextField(
+            Obx(() => TextField(
               controller: controller.regConfirmPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: !controller.isConfirmPasswordVisible.value,
+              decoration: InputDecoration(
                 hintText: 'Repeat your password',
-                prefixIcon: Icon(Icons.lock_outline),
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(controller.isConfirmPasswordVisible.value 
+                    ? Icons.visibility 
+                    : Icons.visibility_off),
+                  onPressed: controller.toggleConfirmPasswordVisibility,
+                ),
               ),
-            ),
+            )),
             const SizedBox(height: 40),
 
             // Register Button

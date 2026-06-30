@@ -18,6 +18,10 @@ class BookmarksView extends GetView<BookmarksController> {
         automaticallyImplyLeading: false,
       ),
       body: Obx(() {
+        if (controller.isLoading.value && !controller.hasLoadedOnce.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
         if (controller.bookmarks.isEmpty) {
           return Center(
             child: Column(

@@ -3,6 +3,7 @@ import '../../models/source_icon_model.dart';
 
 abstract class BaseNewsService {
   Future<List<NewsModel>> fetchNews({required String category, int page = 1});
+  Future<List<NewsModel>> searchNews(String query, {int page = 1});
   // Method to sync latest news
   Future<List<NewsModel>> performNewsSync();
   Future<NewsModel?> fetchNewsDetail(int id);
@@ -26,15 +27,23 @@ abstract class BaseNewsService {
   Future<List<Map<String, dynamic>>> fetchComments(int newsId, String token);
   Future<bool> addComment(int newsId, String comment, String token);
   Future<bool> likeComment(int commentId, String token);
+  Future<bool> updateComment(int commentId, String text, String token);
+  Future<bool> deleteComment(int commentId, String token);
+
+  // Replies
+  Future<List<Map<String, dynamic>>> fetchReplies(int commentId, String token);
+  Future<bool> addReply(int commentId, String reply, String token);
+  Future<bool> likeReply(int replyId, String token);
+  Future<bool> deleteReply(int replyId, String token);
 
   // Sharing
   Future<bool> shareNews(int newsId, String token);
 
-  // Source Icons
-  Future<List<SourceIconModel>> fetchSourceIcons();
+  // Source Icons (Now News Sources)
+  Future<List<SourceIconModel>> fetchSourceIcons(String token);
   
   // Follow Sources
   Future<List<int>> fetchFollowedSourceIds(String token);
-  Future<bool> followSource(int sourceId, String token);
-  Future<bool> unfollowSource(int sourceId, String token);
+  Future<bool> followSource(int sourceId, String sourceName, String token);
+  Future<bool> unfollowSource(int sourceId, String sourceName, String token);
 }

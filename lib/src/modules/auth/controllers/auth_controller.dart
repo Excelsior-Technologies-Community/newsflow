@@ -29,9 +29,24 @@ class AuthController extends GetxController {
 
   final isLoading = false.obs;
   final isPasswordVisible = false.obs;
+  final isConfirmPasswordVisible = false.obs;
+  final isResetPasswordVisible = false.obs;
+  final isResetConfirmVisible = false.obs;
 
   void togglePasswordVisibility() {
     isPasswordVisible.value = !isPasswordVisible.value;
+  }
+
+  void toggleConfirmPasswordVisibility() {
+    isConfirmPasswordVisible.value = !isConfirmPasswordVisible.value;
+  }
+
+  void toggleResetPasswordVisibility() {
+    isResetPasswordVisible.value = !isResetPasswordVisible.value;
+  }
+
+  void toggleResetConfirmVisibility() {
+    isResetConfirmVisible.value = !isResetConfirmVisible.value;
   }
 
   Future<void> login() async {
@@ -249,6 +264,9 @@ class AuthController extends GetxController {
     resetNewPasswordController.clear();
     resetConfirmPasswordController.clear();
     isPasswordVisible.value = false;
+    isConfirmPasswordVisible.value = false;
+    isResetPasswordVisible.value = false;
+    isResetConfirmVisible.value = false;
     selectedProfilePhoto.value = null;
   }
 }

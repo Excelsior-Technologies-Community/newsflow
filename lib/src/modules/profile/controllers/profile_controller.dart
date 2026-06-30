@@ -15,7 +15,10 @@ class ProfileController extends GetxController {
   final userDob = ''.obs;
   final isDarkMode = false.obs;
   final isLoading = false.obs;
-  final isPasswordVisible = false.obs;
+  final isPasswordVisible = false.obs; // Kept for legacy if needed
+  final isCurrentPasswordVisible = false.obs;
+  final isNewPasswordVisible = false.obs;
+  final isConfirmNewPasswordVisible = false.obs;
 
   // History state
   final historyList = <Map<String, dynamic>>[].obs;
@@ -50,6 +53,18 @@ class ProfileController extends GetxController {
 
   void togglePasswordVisibility() {
     isPasswordVisible.value = !isPasswordVisible.value;
+  }
+
+  void toggleCurrentPasswordVisibility() {
+    isCurrentPasswordVisible.value = !isCurrentPasswordVisible.value;
+  }
+
+  void toggleNewPasswordVisibility() {
+    isNewPasswordVisible.value = !isNewPasswordVisible.value;
+  }
+
+  void toggleConfirmNewPasswordVisibility() {
+    isConfirmNewPasswordVisible.value = !isConfirmNewPasswordVisible.value;
   }
 
   Future<void> getProfile() async {

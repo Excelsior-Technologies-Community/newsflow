@@ -19,9 +19,9 @@ class SourceIconModel {
 
   factory SourceIconModel.fromJson(Map<String, dynamic> json) {
     return SourceIconModel(
-      id: json['id'] ?? 0,
-      name: json['name'] ?? json['source_name'] ?? json['title'] ?? '',
-      iconUrl: json['icon_url'] ?? json['icon'] ?? json['url'] ?? json['image'] ?? '',
+      id: json['id'] ?? json['source_id'] ?? 0,
+      name: json['source_name'] ?? json['name'] ?? '',
+      iconUrl: json['source_icon'] ?? json['source_logo'] ?? json['icon_url'] ?? json['logo'] ?? '',
       status: json['status'] == 1 || json['status'] == true || json['status'] == '1',
       initiallyFollowed: json['is_followed'] == true || json['is_followed'] == 1,
     );

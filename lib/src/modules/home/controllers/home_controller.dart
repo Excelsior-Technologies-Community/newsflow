@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/network/base_news_service.dart';
 import '../../../core/network/api_service.dart';
 import '../../../models/news_model.dart';
 import '../../../core/base/base_controller.dart';
@@ -21,6 +20,11 @@ class HomeController extends BaseController {
 
   final categories = <String>['Top News', 'India', 'World', 'Business', 'Sports', 'AI'].obs;
 
+  // Search Implementation
+  final isSearching = false.obs;
+  final searchQuery = ''.obs;
+  final searchController = TextEditingController();
+
   Timer? _syncTimer;
 
   @override
@@ -30,6 +34,16 @@ class HomeController extends BaseController {
     fetchNews(selectedCategory.value);
     _startSyncTimer();
     
+    // Debounce search input
+    debounce(searchQuery, (query) {
+      if (query.isNotEmpty) {
+        performSearch(query);
+      } else if (isSearching.value) {
+        // If query cleared while in search mode, go back to category
+        fetchNews(selectedCategory.value);
+      }
+    }, time: const Duration(milliseconds: 500));
+
     scrollController.addListener(() {
       // Handle App Bar Elevation
       appBarElevation.value = scrollController.offset > 10 ? 2.0 : 0.0;
@@ -44,7 +58,16 @@ class HomeController extends BaseController {
   }
 
   Future<void> fetchNews(String category, {bool showLoading = true}) async {
-    if (showLoading) state = ViewState.loading;
+    // Reset search if we are switching categories manually
+    if (!isSearching.value) {
+      searchQuery.value = '';
+      searchController.clear();
+    }
+
+    if (showLoading) {
+      state = ViewState.loading;
+      newsList.clear(); 
+    }
     selectedCategory.value = category;
     currentPage.value = 1;
     hasMore.value = true;
@@ -61,7 +84,7 @@ class HomeController extends BaseController {
           final bookmarksController = Get.find<BookmarksController>();
           for (var item in results) {
             if (item.id != null) {
-              item.isBookmarked.value = bookmarksController.isBookmarked(item.id!);
+              _syncItemBookmark(item, bookmarksController);
             }
           }
         }
@@ -88,10 +111,18 @@ class HomeController extends BaseController {
     currentPage.value++;
 
     try {
-      final results = await _newsService.fetchNews(
-        category: selectedCategory.value, 
-        page: currentPage.value
-      );
+      final List<NewsModel> results;
+      if (isSearching.value && searchQuery.value.isNotEmpty) {
+        results = await (_newsService as dynamic).searchNews(
+          searchQuery.value, 
+          page: currentPage.value
+        );
+      } else {
+        results = await _newsService.fetchNews(
+          category: selectedCategory.value, 
+          page: currentPage.value
+        );
+      }
       
       if (results.isEmpty) {
         hasMore.value = false;
@@ -101,7 +132,7 @@ class HomeController extends BaseController {
           final bookmarksController = Get.find<BookmarksController>();
           for (var item in results) {
             if (item.id != null) {
-              item.isBookmarked.value = bookmarksController.isBookmarked(item.id!);
+              _syncItemBookmark(item, bookmarksController);
             }
           }
         }
@@ -146,7 +177,7 @@ class HomeController extends BaseController {
           final bookmarksController = Get.find<BookmarksController>();
           for (var item in results) {
             if (item.id != null) {
-              item.isBookmarked.value = bookmarksController.isBookmarked(item.id!);
+              _syncItemBookmark(item, bookmarksController);
             }
           }
         }
@@ -175,6 +206,55 @@ class HomeController extends BaseController {
   void onClose() {
     _syncTimer?.cancel();
     scrollController.dispose();
+    searchController.dispose();
     super.onClose();
+  }
+
+  void toggleSearch() {
+    isSearching.value = !isSearching.value;
+    if (!isSearching.value) {
+      searchQuery.value = '';
+      searchController.clear();
+      fetchNews(selectedCategory.value);
+    }
+  }
+
+  Future<void> performSearch(String query) async {
+    state = ViewState.loading;
+    newsList.clear();
+    currentPage.value = 1;
+    hasMore.value = true;
+
+    if (!await checkConnectivity()) return;
+
+    try {
+      final results = await (_newsService as dynamic).searchNews(query, page: 1);
+      if (results.isEmpty) {
+        state = ViewState.empty;
+      } else {
+        if (Get.isRegistered<BookmarksController>()) {
+          final bookmarksController = Get.find<BookmarksController>();
+          for (var item in results) {
+            if (item.id != null) {
+              _syncItemBookmark(item, bookmarksController);
+            }
+          }
+        }
+        newsList.assignAll(results);
+        state = ViewState.success;
+      }
+    } catch (e) {
+      state = ViewState.error;
+    }
+  }
+
+  void _syncItemBookmark(NewsModel item, BookmarksController bookmarksController) {
+    if (bookmarksController.hasLoadedOnce.value) {
+      item.isBookmarked.value = bookmarksController.isBookmarked(item.id!);
+    } else {
+      if (bookmarksController.isBookmarked(item.id!)) {
+        item.isBookmarked.value = true;
+      }
+    }
   }
 }

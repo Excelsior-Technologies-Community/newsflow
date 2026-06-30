@@ -32,6 +32,29 @@ class ApiService implements BaseNewsService {
   }
 
   @override
+  Future<List<NewsModel>> searchNews(String query, {int page = 1}) async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/api/news?search=$query&page=$page"),
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List results = data['data'] ?? [];
+        return results.map((json) => NewsModel.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print("Search News Error: $e");
+      return [];
+    }
+  }
+
+  @override
   Future<List<NewsModel>> performNewsSync() async {
     try {
       print("ApiService: Syncing news from $baseUrl/api/news/sync");
@@ -130,7 +153,15 @@ class ApiService implements BaseNewsService {
         return true;
       } else {
         final data = json.decode(response.body);
-        print("Save Bookmark Failed: ${response.statusCode} - ${data['message']}");
+        final message = data['message']?.toString() ?? '';
+        print("Save Bookmark Failed: ${response.statusCode} - $message");
+        
+        // Handle "Duplicate entry" as success (it's already saved)
+        if (message.contains('Duplicate entry') || response.statusCode == 409) {
+          print("Save Bookmark: Item already exists. Treating as success.");
+          return true;
+        }
+
         return false;
       }
     } catch (e) {
@@ -204,6 +235,10 @@ class ApiService implements BaseNewsService {
         return true;
       } else {
         print("Remove Bookmark Failed: ${response.statusCode}");
+        // If not found, it's already removed, so treat as success
+        if (response.statusCode == 404) {
+          return true;
+        }
         return false;
       }
     } catch (e) {
@@ -368,8 +403,11 @@ class ApiService implements BaseNewsService {
   @override
   Future<bool> addComment(int newsId, String comment, String token) async {
     try {
+      final url = Uri.parse("$baseUrl/api/comments");
+      print("ApiService: Adding Comment to News ID: $newsId");
+      
       final response = await http.post(
-        Uri.parse("$baseUrl/api/comments"),
+        url,
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $token",
@@ -379,10 +417,15 @@ class ApiService implements BaseNewsService {
           'news_id': newsId,
           'comment': comment,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 15));
 
-      return response.statusCode == 201;
+      print("ApiService: Add Comment Response Status: ${response.statusCode}");
+      print("ApiService: Add Comment Response Body: ${response.body}");
+
+      // Handle 200 or 201 as success
+      return response.statusCode == 201 || response.statusCode == 200;
     } catch (e) {
+      print("ApiService: Add Comment Exception: $e");
       return false;
     }
   }
@@ -398,6 +441,127 @@ class ApiService implements BaseNewsService {
           "ngrok-skip-browser-warning": "true",
         },
         body: json.encode({"comment_id": commentId}),
+      ).timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> updateComment(int commentId, String text, String token) async {
+    try {
+      final response = await http.patch(
+        Uri.parse("$baseUrl/api/comments/$commentId"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: json.encode({'comment': text}),
+      ).timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> deleteComment(int commentId, String token) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/api/comments/$commentId"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+          "ngrok-skip-browser-warning": "true",
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- Replies ---
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchReplies(int commentId, String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/api/comments/$commentId/replies"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+          "ngrok-skip-browser-warning": "true",
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List results = data['data'] ?? [];
+        return results.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<bool> addReply(int commentId, String reply, String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/api/comment-replies/reply"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: json.encode({
+          'comment_id': commentId,
+          'reply': reply,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 201 || response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> likeReply(int replyId, String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/api/comments/replies/like"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: json.encode({"reply_id": replyId}),
+      ).timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> deleteReply(int replyId, String token) async {
+    try {
+      final response = await http.delete(
+        Uri.parse("$baseUrl/api/comments/replies/$replyId"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+          "ngrok-skip-browser-warning": "true",
+        },
       ).timeout(const Duration(seconds: 10));
 
       return response.statusCode == 200;
@@ -433,36 +597,41 @@ class ApiService implements BaseNewsService {
     }
   }
 
-  // --- Source Icons ---
+  // --- Source Icons (Now News Sources) ---
 
   @override
-  Future<List<SourceIconModel>> fetchSourceIcons() async {
+  Future<List<SourceIconModel>> fetchSourceIcons(String token) async {
     try {
-      print("ApiService: Fetching source icons from $baseUrl/api/source-icons");
+      print("ApiService: Fetching news sources from $baseUrl/api/news-sources");
       final response = await http.get(
-        Uri.parse("$baseUrl/api/source-icons"),
+        Uri.parse("$baseUrl/api/news-sources"),
         headers: {
           "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
           "ngrok-skip-browser-warning": "true",
         },
       ).timeout(const Duration(seconds: 15));
 
       print("ApiService: Status Code: ${response.statusCode}");
       if (response.statusCode == 200) {
+        print("ApiService: Raw Response Body: ${response.body}");
         final Map<String, dynamic> data = json.decode(response.body);
-        print("ApiService: Data keys: ${data.keys.toList()}");
         
         // Handle different possible response structures
         final List results = data['data'] is List 
             ? data['data'] 
-            : (data['sourceIcons'] is List ? data['sourceIcons'] : (data['results'] is List ? data['results'] : []));
+            : (data['newsSources'] is List ? data['newsSources'] : (data['results'] is List ? data['results'] : []));
         
-        print("ApiService: Found ${results.length} items in 'data'");
+        if (results.isNotEmpty) {
+          print("ApiService: First source item JSON: ${results.first}");
+        }
+        
+        print("ApiService: Found ${results.length} items in master list");
         return results.map((json) => SourceIconModel.fromJson(json)).toList();
       }
       return [];
     } catch (e) {
-      print("Fetch Source Icons Error: $e");
+      print("Fetch News Sources Error: $e");
       return [];
     }
   }
@@ -494,40 +663,74 @@ class ApiService implements BaseNewsService {
   }
 
   @override
-  Future<bool> followSource(int sourceId, String token) async {
+  Future<bool> followSource(int sourceId, String sourceName, String token) async {
     try {
+      final url = Uri.parse("$baseUrl/api/follow-sources");
+      print("ApiService: Following - ID: $sourceId, Name: '$sourceName'");
+      
       final response = await http.post(
-        Uri.parse("$baseUrl/api/follow-sources"),
+        url,
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $token",
           "ngrok-skip-browser-warning": "true",
         },
-        body: json.encode({"source_id": sourceId}),
-      ).timeout(const Duration(seconds: 10));
+        body: json.encode({
+          "source_id": sourceId,
+          "source_name": sourceName.trim(), 
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      print("ApiService: Follow Response: ${response.statusCode} - ${response.body}");
+
+      if (response.statusCode == 500) {
+        print("ApiService: Retrying with 'news_source_id' key...");
+        final retryResponse = await http.post(
+          url,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer $token",
+            "ngrok-skip-browser-warning": "true",
+          },
+          body: json.encode({
+            "news_source_id": sourceId,
+            "source_name": sourceName.trim(),
+          }),
+        ).timeout(const Duration(seconds: 15));
+        print("ApiService: Retry Response: ${retryResponse.statusCode} - ${retryResponse.body}");
+        return retryResponse.statusCode == 200 || retryResponse.statusCode == 201;
+      }
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
+      print("ApiService: Follow Exception: $e");
       return false;
     }
   }
 
   @override
-  Future<bool> unfollowSource(int sourceId, String token) async {
+  Future<bool> unfollowSource(int sourceId, String sourceName, String token) async {
     try {
-      // Based on the user provided image, unfollow is PATCH /api/follow-sources/unfollow
+      final url = Uri.parse("$baseUrl/api/follow-sources/unfollow");
+      print("ApiService: Unfollowing - ID: $sourceId, Name: $sourceName");
+
       final response = await http.patch(
-        Uri.parse("$baseUrl/api/follow-sources/unfollow"),
+        url,
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $token",
           "ngrok-skip-browser-warning": "true",
         },
-        body: json.encode({"source_id": sourceId}),
-      ).timeout(const Duration(seconds: 10));
+        body: json.encode({
+          "source_id": sourceId,
+          "source_name": sourceName, // Match Follow payload for consistency
+        }),
+      ).timeout(const Duration(seconds: 15));
 
+      print("ApiService: Unfollow Response: ${response.statusCode} - ${response.body}");
       return response.statusCode == 200;
     } catch (e) {
+      print("ApiService: Unfollow Exception: $e");
       return false;
     }
   }

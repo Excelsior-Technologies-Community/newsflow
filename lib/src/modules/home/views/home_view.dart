@@ -23,36 +23,93 @@ class HomeView extends GetView<HomeController> {
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: Obx(() => AppBar(
-          elevation: controller.appBarElevation.value,
-          shadowColor: isDark ? Colors.black45 : Colors.black12,
-          surfaceTintColor: Colors.transparent,
-          backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
-          title: Row(
-            children: [
-              const AppLogo(size: 28, showText: false),
-              const SizedBox(width: 12),
-              Text(
-                'NewsFlow',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
+        child: Obx(() {
+          if (controller.isSearching.value) {
+            return AppBar(
+              elevation: 0,
+              backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_ios_new, size: 20, color: isDark ? Colors.white70 : Colors.black87),
+                onPressed: () => controller.toggleSearch(),
+              ),
+              titleSpacing: 0,
+              title: Container(
+                height: 42,
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2B354E) : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TextField(
+                  controller: controller.searchController,
+                  autofocus: true,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Search for articles...',
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.grey[500] : Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded, 
+                      size: 20, 
+                      color: isDark ? Colors.grey[500] : Colors.grey[600]
+                    ),
+                    suffixIcon: controller.searchQuery.value.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.cancel_rounded, size: 18),
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          onPressed: () {
+                            controller.searchController.clear();
+                            controller.searchQuery.value = '';
+                          },
+                        )
+                      : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onChanged: (value) => controller.searchQuery.value = value,
                 ),
               ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              tooltip: 'Refresh News',
-              icon: const Icon(Icons.refresh_rounded, size: 24),
-              onPressed: () => controller.fetchNews(controller.selectedCategory.value),
+            );
+          }
+
+          return AppBar(
+            elevation: controller.appBarElevation.value,
+            shadowColor: isDark ? Colors.black45 : Colors.black12,
+            surfaceTintColor: Colors.transparent,
+            backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+            title: Row(
+              children: [
+                const AppLogo(size: 28, showText: false),
+                const SizedBox(width: 12),
+                Text(
+                  'NewsFlow',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
             ),
-          ],
-        )),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.search),
+                onPressed: () => controller.toggleSearch(),
+              ),
+              const SizedBox(width: 8),
+            ],
+          );
+        }),
       ),
       body: Column(
         children: [
-          _buildCategoryList(),
+          Obx(() => controller.isSearching.value 
+            ? const SizedBox.shrink() 
+            : _buildCategoryList()
+          ),
           Expanded(
             child: Obx(() {
               switch (controller.state) {
@@ -77,7 +134,13 @@ class HomeView extends GetView<HomeController> {
                   );
                 case ViewState.success:
                   return RefreshIndicator(
-                    onRefresh: () => controller.fetchNews(controller.selectedCategory.value, showLoading: false),
+                    onRefresh: () async {
+                      if (controller.isSearching.value && controller.searchQuery.value.isNotEmpty) {
+                        await controller.performSearch(controller.searchQuery.value);
+                      } else {
+                        await controller.fetchNews(controller.selectedCategory.value, showLoading: true);
+                      }
+                    },
                     child: _buildNewsList(),
                   );
                 default:
@@ -143,30 +206,6 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-  Widget _buildNewsList() {
-    return ListView.separated(
-      controller: controller.scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
-      itemCount: controller.newsList.length + (controller.hasMore.value ? 1 : 0),
-      separatorBuilder: (context, index) => const SizedBox(height: 20),
-      itemBuilder: (context, index) {
-        if (index == controller.newsList.length) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        final news = controller.newsList[index];
-        return GestureDetector(
-          onTap: () => Get.toNamed(Routes.newsDetail, arguments: news),
-          child: _buildNewsCard(context, news),
-        );
-      },
-    );
-  }
-
   String _formatDate(String dateStr) {
     if (dateStr.isEmpty) return 'Recent';
     try {
@@ -178,131 +217,207 @@ class HomeView extends GetView<HomeController> {
     }
   }
 
-  Widget _buildNewsCard(BuildContext context, NewsModel news) {
+  Widget _buildNewsList() {
+    return ListView.separated(
+      controller: controller.scrollController,
+      padding: EdgeInsets.zero, // Remove side padding for full-width feel
+      itemCount: controller.newsList.length + (controller.hasMore.value ? 1 : 0),
+      separatorBuilder: (context, index) => Container(
+        height: 8,
+        color: Theme.of(context).brightness == Brightness.dark 
+            ? Colors.black12 
+            : Colors.grey.shade100,
+      ),
+      itemBuilder: (context, index) {
+        if (index == controller.newsList.length) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        final news = controller.newsList[index];
+        return _buildNewsItem(context, news);
+      },
+    );
+  }
+
+  Widget _buildNewsItem(BuildContext context, NewsModel news) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final bookmarkController = Get.find<BookmarksController>();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2B354E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          if (!isDark)
-            BoxShadow(
-              color: Colors.black.withAlpha(13), // Approx 0.05 opacity
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (news.urlToImage.isNotEmpty)
-            CachedNetworkImage(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Full-width Image
+        if (news.urlToImage.isNotEmpty)
+          GestureDetector(
+            onTap: () => Get.toNamed(Routes.newsDetail, arguments: news),
+            child: CachedNetworkImage(
               imageUrl: news.urlToImage,
               width: double.infinity,
-              height: 200,
+              height: 240,
               fit: BoxFit.cover,
               placeholder: (context, url) => Container(
-                height: 200,
+                height: 240,
                 color: theme.colorScheme.surface,
                 child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
               ),
               errorWidget: (context, url, error) => Container(
-                height: 200,
+                height: 240,
                 color: theme.colorScheme.surface,
                 child: const Icon(Icons.broken_image_rounded, size: 40, color: Colors.grey),
               ),
             ),
-          
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFD32F2F),
-                        shape: BoxShape.circle,
-                      ),
+          ),
+        
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 2. Source Badge (Modern style)
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.black,
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        news.source.toUpperCase(),
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: theme.primaryColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  news.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _formatDate(news.publishedAt),
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[500],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Row(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.share_outlined, size: 20),
-                          onPressed: () => Share.share('${news.title}\n\nRead more at: ${news.link}'),
-                          constraints: const BoxConstraints(),
-                          padding: EdgeInsets.zero,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        const SizedBox(width: 16),
-                        Obx(() => IconButton(
-                          icon: Icon(
-                            news.isBookmarked.value ? Icons.bookmark : Icons.bookmark_outline,
-                            size: 20,
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFD32F2F),
+                            shape: BoxShape.circle,
                           ),
-                          onPressed: () => bookmarkController.toggleBookmark(news),
-                          color: news.isBookmarked.value ? theme.primaryColor : null,
-                          constraints: const BoxConstraints(),
-                          padding: EdgeInsets.zero,
-                          visualDensity: VisualDensity.compact,
-                        )),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          news.source.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // 3. Bold Title
+              GestureDetector(
+                onTap: () => Get.toNamed(Routes.newsDetail, arguments: news),
+                child: Text(
+                  news.title,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                    height: 1.25,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 12),
+
+              // 4. Description Snippet
+              Text(
+                news.description,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? const Color(0xFFABB0C4) : const Color(0xFF4B5563),
+                  height: 1.5,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 5. Read More Link
+              InkWell(
+                onTap: () => Get.toNamed(Routes.newsDetail, arguments: news),
+                child: Text(
+                  'Read More',
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 6. Footer (Date and Actions)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _formatDate(news.publishedAt),
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[500],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onSelected: (value) {
+                      if (value == 'share') {
+                        Share.share('${news.title}\n\nRead more at: ${news.link}');
+                      } else if (value == 'save') {
+                        bookmarkController.toggleBookmark(news);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'share',
+                        child: Row(
+                          children: [
+                            Icon(Icons.share_outlined, size: 18),
+                            SizedBox(width: 12),
+                            Text('Share'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'save',
+                        child: Obx(() => Row(
+                          children: [
+                            Icon(
+                              news.isBookmarked.value ? Icons.bookmark : Icons.bookmark_outline,
+                              size: 18,
+                              color: news.isBookmarked.value ? theme.primaryColor : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(news.isBookmarked.value ? 'Saved' : 'Save'),
+                          ],
+                        )),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

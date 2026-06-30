@@ -324,39 +324,10 @@ class NewsDetailView extends GetView<NewsDetailController> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: controller.comments.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 16),
+                        separatorBuilder: (context, index) => const Divider(height: 32),
                         itemBuilder: (context, index) {
                           final comment = controller.comments[index];
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              CircleAvatar(
-                                radius: 18,
-                                backgroundColor: theme.primaryColor.withOpacity(0.1),
-                                child: Text(
-                                  (comment['user_name'] ?? 'U').substring(0, 1).toUpperCase(),
-                                  style: TextStyle(color: theme.primaryColor, fontSize: 12),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      comment['user_name'] ?? 'User',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      comment['comment'] ?? '',
-                                      style: theme.textTheme.bodyMedium?.copyWith(fontSize: 14),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
+                          return _CommentItem(comment: comment);
                         },
                       );
                     }),
@@ -383,6 +354,359 @@ class NewsDetailView extends GetView<NewsDetailController> {
           ),
         );
       }),
+    );
+  }
+}
+
+class _CommentItem extends StatefulWidget {
+  final Map<String, dynamic> comment;
+  const _CommentItem({required this.comment});
+
+  @override
+  State<_CommentItem> createState() => _CommentItemState();
+}
+
+class _CommentItemState extends State<_CommentItem> {
+  late final TextEditingController _replyController;
+  final isReplying = false.obs;
+
+  @override
+  void initState() {
+    super.initState();
+    _replyController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _replyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<NewsDetailController>();
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final currentUserId = controller.storage.read('userId')?.toString();
+    final currentUserName = controller.storage.read('userName')?.toString();
+    final commentUserId = widget.comment['user_id']?.toString();
+    final commentUserName = widget.comment['user_name']?.toString();
+
+    // MOST RELIABLE CHECK: Compare trimmed strings
+    final isMine = (currentUserId != null && commentUserId != null && currentUserId.trim() == commentUserId.trim()) ||
+                   (currentUserName != null && commentUserName != null && currentUserName.trim() == commentUserName.trim());
+    
+    final commentId = widget.comment['id'] as int;
+
+    // EMERGENCY LOGGING - PLEASE SHARE THIS
+    print("CRITICAL DEBUG: MyID='$currentUserId', CommentOwnerID='$commentUserId', MyName='$currentUserName', OwnerName='$commentUserName', MATCH=$isMine");
+
+    final isLiked = widget.comment['is_liked'] == 1 || widget.comment['is_liked'] == true;
+    final likesCount = widget.comment['likes_count'] ?? 0;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: theme.primaryColor.withOpacity(0.1),
+              child: Text(
+                (widget.comment['user_name'] ?? 'U').substring(0, 1).toUpperCase(),
+                style: TextStyle(color: theme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'User', // Hardcoded as requested
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      // Force showing the menu if we suspect it's the user's comment
+                      if (isMine)
+                        PopupMenuButton(
+                          icon: const Icon(Icons.more_horiz, size: 18),
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                            const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+                          ],
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              _showEditDialog(context, controller, commentId, widget.comment['comment'] ?? '');
+                            } else if (value == 'delete') {
+                              controller.deleteComment(commentId);
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+                  Text(
+                    widget.comment['comment'] ?? '',
+                    style: theme.textTheme.bodyMedium?.copyWith(fontSize: 14, height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Actions: Like, Reply
+                  Row(
+                    children: [
+                      Obx(() {
+                        // Crucial: Find the current state from the controller's reactive list
+                        final currentComment = controller.comments.firstWhere(
+                          (c) => c['id'] == commentId, 
+                          orElse: () => widget.comment
+                        );
+                        final isLiked = currentComment['is_liked'] == 1 || currentComment['is_liked'] == true;
+                        final likesCount = currentComment['likes_count'] ?? 0;
+
+                        return GestureDetector(
+                          onTap: () => controller.likeComment(commentId),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                size: 16,
+                                color: isLiked ? Colors.red : Colors.grey,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$likesCount',
+                                style: TextStyle(fontSize: 12, color: isLiked ? Colors.red : Colors.grey),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      const SizedBox(width: 20),
+                      GestureDetector(
+                        onTap: () => isReplying.toggle(),
+                        child: const Text(
+                          'Reply',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Text(
+                        _formatTime(widget.comment['created_at']),
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  
+                  // Reply Input Area
+                  Obx(() => isReplying.value 
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _replyController,
+                                autofocus: true,
+                                decoration: InputDecoration(
+                                  hintText: 'Write a reply...',
+                                  isDense: true,
+                                  fillColor: isDark ? const Color(0xFF1F2937) : Colors.grey[100],
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                if (_replyController.text.isNotEmpty) {
+                                  controller.addReply(commentId, _replyController.text);
+                                  _replyController.clear();
+                                  isReplying.value = false;
+                                  FocusScope.of(context).unfocus();
+                                }
+                              },
+                              icon: Icon(Icons.send_rounded, color: theme.primaryColor, size: 20),
+                            ),
+                          ],
+                        ),
+                      ) 
+                    : const SizedBox.shrink()
+                  ),
+                  
+                  // Replies List Section
+                  _buildRepliesSection(context, controller, commentId),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRepliesSection(BuildContext context, NewsDetailController controller, int commentId) {
+    return GetBuilder<NewsDetailController>(
+      builder: (c) {
+        final commentReplies = c.replies[commentId];
+        final isLoading = c.loadingReplies[commentId] ?? false;
+
+        if (commentReplies == null && !isLoading) {
+          // If has replies count but not loaded, show "View X replies"
+          final repliesCount = widget.comment['replies_count'] ?? 0;
+          if (repliesCount > 0) {
+            return TextButton(
+              onPressed: () => c.fetchReplies(commentId),
+              child: Text('View $repliesCount replies', style: const TextStyle(fontSize: 12)),
+            );
+          }
+          return const SizedBox.shrink();
+        }
+
+        if (isLoading) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: commentReplies!.length,
+          itemBuilder: (context, index) {
+            final reply = commentReplies[index];
+            return _ReplyItem(reply: reply, parentCommentId: commentId);
+          },
+        );
+      },
+    );
+  }
+
+  String _formatTime(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final date = DateTime.parse(dateStr).toLocal();
+      return DateFormat('h:mm a').format(date);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  void _showEditDialog(BuildContext context, NewsDetailController controller, int commentId, String currentText) {
+    final editController = TextEditingController(text: currentText);
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Edit Comment'),
+        content: TextField(
+          controller: editController,
+          maxLines: 3,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              controller.updateComment(commentId, editController.text);
+              Get.back();
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReplyItem extends StatelessWidget {
+  final Map<String, dynamic> reply;
+  final int parentCommentId;
+  const _ReplyItem({required this.reply, required this.parentCommentId});
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<NewsDetailController>();
+    final theme = Theme.of(context);
+    final currentUserId = controller.storage.read('userId');
+    final isMine = reply['user_id'] == currentUserId;
+    
+    final isLiked = reply['is_liked'] == 1 || reply['is_liked'] == true;
+    final likesCount = reply['likes_count'] ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: theme.primaryColor.withOpacity(0.05),
+            child: const Text(
+              'U', // Hardcoded as requested
+              style: TextStyle(color: Color(0xFF1E88E5), fontSize: 10),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'User', // Hardcoded as requested
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    if (isMine)
+                      GestureDetector(
+                        onTap: () => controller.deleteReply(reply['id'], parentCommentId),
+                        child: const Icon(Icons.delete_outline, size: 14, color: Colors.red),
+                      ),
+                  ],
+                ),
+                Text(
+                  reply['reply'] ?? '',
+                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Obx(() {
+                      final commentReplies = controller.replies[parentCommentId];
+                      final currentReply = commentReplies?.firstWhere(
+                        (r) => r['id'] == reply['id'],
+                        orElse: () => reply,
+                      ) ?? reply;
+
+                      final isLiked = currentReply['is_liked'] == 1 || currentReply['is_liked'] == true;
+                      final likesCount = currentReply['likes_count'] ?? 0;
+
+                      return GestureDetector(
+                        onTap: () => controller.likeReply(reply['id'], parentCommentId),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isLiked ? Icons.favorite : Icons.favorite_border,
+                              size: 14,
+                              color: isLiked ? Colors.red : Colors.grey,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$likesCount',
+                              style: TextStyle(fontSize: 11, color: isLiked ? Colors.red : Colors.grey),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
